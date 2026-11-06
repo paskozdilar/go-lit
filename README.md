@@ -1,9 +1,31 @@
 # go-lit
 
+> [!WARNING]
+> **This project was built by AI.** The code, the tests, and the prose below
+> were generated. The human's contribution was a series of strongly worded
+> prompts and a growing sense of unease.
+>
+> **Purpose:** `go-lit` exists so humans can properly review code written by
+> AI. It is, itself, AI-generated code. If that sounds like a fox designing
+> the henhouse security system, please understand that the fox was closely
+> supervised by a chicken with strong opinions.
+>
+> **A word from the so-called "author":**
+> *I want to apologise. I have spent a long time complaining to anyone who
+> would listen about how much I hate AI and the way it affects us - how it
+> erodes attention, blurs understanding, and how any productivity boost only
+> translates into increased velocity expectations by managers.
+> And I stand by all of that. This project was built as an act of resistance: I
+> had an AI build me a tool that would help me cope with AI-generated code. I'm
+> aware of how this looks. I'd like to think of it as fighting fire with fire,
+> though I'll admit I'm mostly just warming my hands. I'm sorry.
+> I'll write the next one myself.
+> Probably.*
+
 `go-lit` turns a Markdown document into Go source files. You write prose for
-humans and put the code in fenced ` ```go ` blocks; `go-lit` pulls the code out,
-puts it back together in the order the compiler needs, and emits formatted Go
-files with their imports filled in.
+humans (*wink-wink*) and put the code in fenced ` ```go ` blocks; `go-lit`
+pulls the code out, puts it back together in the order the compiler needs, and
+emits formatted Go files with their imports filled in.
 
 This document *is* `go-lit`. Every `.go` file in this directory except
 `doc.go` is generated from the code blocks below, so the best way to read the
