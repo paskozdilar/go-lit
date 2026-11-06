@@ -60,7 +60,11 @@ func (p *Program) Parse(srcName string, data []byte) error {
 		for i := 0; i < segs.Len(); i++ {
 			s := segs.At(i)
 			n := bytes.Count(data[:s.Start], []byte("\n")) + 1
-			lines = append(lines, line{strings.TrimRight(string(s.Value(data)), "\r\n"), srcName, n})
+			lines = append(lines, line{
+				text: strings.TrimRight(string(s.Value(data)), "\r\n"),
+				src:  srcName,
+				n:    n,
+			})
 		}
 		for len(lines) > 0 && strings.TrimSpace(lines[0].text) == "" {
 			lines = lines[1:]

@@ -247,9 +247,12 @@ func (p *Program) HasFiles() bool {
 
 We do not scan the Markdown with regular expressions. Goldmark parses it into
 a syntax tree, so anything that only *looks* like a code block, such as
-indented text or fences inside an HTML block, is never picked up. Its walker
-visits nodes depth first, which is document order. That matters, because
-appending is order sensitive.
+indented text or fences inside an HTML block, is never picked up.
+
+Parsing begins with `goldmark.New().Parser().Parse(text.NewReader(data))`.
+Wrapping the input bytes in `text.NewReader` gives Goldmark a reader interface
+without copying the slice. Goldmark's walker then visits nodes depth first, which
+is document order. That matters, because appending is order sensitive.
 
 ```go
 // file: tangle.go
@@ -268,10 +271,37 @@ func (p *Program) Parse(srcName string, data []byte) error {
 }
 ```
 
-Goldmark gives us one byte segment per line of the block. Counting the
-newlines before a segment gives its line number. Indented blocks, for example
-inside a list, come with padding information that `Value` turns back into
-spaces. Leading blank lines are dropped so the marker can be found.
+A few details of the Goldmark API are worth noting here:
+
+* **Two-phase walking (`entering`):** `ast.Walk` visits every node *twice*:
+  first when entering the node (`entering == true`, before traversing its children),
+  and again when leaving it (`entering == false`, after its children have been visited).
+  This allows container nodes to perform enter and leave actions, such as emitting
+  opening and closing HTML tags. A fenced code block is a leaf, and we only want
+  to process its lines once, so we ignore exit visits (`!entering`).
+* **Traversal control (`ast.WalkStatus`):** Returning `ast.WalkContinue, nil`
+  tells the walker to proceed to the next node in sequence.
+* **Zero-copy node data:** Goldmark is designed to minimize memory allocations.
+  AST nodes do not store decoded strings or line numbers. Instead, they store
+  byte offsets into the original source buffer. This is why methods like
+  `fb.Language(data)` take `data []byte` as a parameter: they slice directly
+  into the original input to extract the fence tag (e.g., `"go"`) without
+  allocating a copy.
+
+The block's contents follow the same design. `fb.Lines()` returns a collection of
+`text.Segment` values—one for each line in the block—holding byte offsets
+(`s.Start`, `s.Stop`) into the original `data` slice.
+
+To reconstruct each line:
+
+* `s.Value(data)` retrieves the line's bytes from `data`. If the code block is
+  indented (for example, nested inside a list item), Goldmark stores padding
+  metadata in the segment, which `Value` turns back into leading spaces.
+* `bytes.Count(data[:s.Start], []byte("\n")) + 1` derives the 1-based line number.
+  Slicing `data` from byte 0 up to `s.Start` and counting newlines tells us how
+  many lines precede this segment.
+
+Leading blank lines are dropped so the marker can be found.
 
 ```go
 //== block-lines ==//
@@ -280,7 +310,11 @@ segs := fb.Lines()
 for i := 0; i < segs.Len(); i++ {
 	s := segs.At(i)
 	n := bytes.Count(data[:s.Start], []byte("\n")) + 1
-	lines = append(lines, line{strings.TrimRight(string(s.Value(data)), "\r\n"), srcName, n})
+	lines = append(lines, line{
+		text: strings.TrimRight(string(s.Value(data)), "\r\n"),
+		src:  srcName,
+		n:    n,
+	})
 }
 for len(lines) > 0 && strings.TrimSpace(lines[0].text) == "" {
 	lines = lines[1:]
