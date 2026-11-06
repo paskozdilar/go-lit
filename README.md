@@ -33,16 +33,108 @@ program is top to bottom, right here.
 
 ## Contents
 
-1. [The notation](#the-notation)
-2. [Bootstrapping](#bootstrapping)
-3. [The command line](#the-command-line)
-4. [Lines and the symbol table](#lines-and-the-symbol-table)
-5. [Reading Markdown](#reading-markdown)
-6. [Expanding references](#expanding-references)
-7. [Assembling a file](#assembling-a-file)
-8. [Pointing errors back at the Markdown](#pointing-errors-back-at-the-markdown)
-9. [Formatting and imports](#formatting-and-imports)
-10. [Writing to disk](#writing-to-disk)
+1. [Using go-lit](#using-go-lit)
+2. [The notation](#the-notation)
+3. [Bootstrapping](#bootstrapping)
+4. [The command line](#the-command-line)
+5. [Lines and the symbol table](#lines-and-the-symbol-table)
+6. [Reading Markdown](#reading-markdown)
+7. [Expanding references](#expanding-references)
+8. [Assembling a file](#assembling-a-file)
+9. [Pointing errors back at the Markdown](#pointing-errors-back-at-the-markdown)
+10. [Formatting and imports](#formatting-and-imports)
+11. [Writing to disk](#writing-to-disk)
+
+## Using go-lit
+
+### Why bother
+
+Code is laid out for the compiler. Someone reviewing it usually wants
+something else: what the program is for, why it is shaped this way, and which
+part matters. Comments only go so far. They sit inside one function, they can
+get out of date, and you can't use them to read things in a different order.
+
+In a literate program the explanation is the main document and the code is
+written inside it. You tell the story in whatever order makes sense: the big
+picture first, details later, and one function split across several
+paragraphs if that is easier to follow. `go-lit` then reorders the pieces into
+ordinary Go. The prose can't fall behind the code, because the code is
+generated from the prose. That is useful for any code that someone else has to
+understand. It is especially useful when you didn't write it yourself (see the
+warning above) and have to review it before you trust it.
+
+Nothing exotic comes out the other end. The output is plain, `gofmt`ed Go
+that you commit like any other code, so `go build`, `gopls`, tests and users
+of your package never need to know `go-lit` exists.
+
+### Getting started
+
+**1. Add the tool to your module** (Go 1.24+ pins it in `go.mod`):
+
+```sh
+go get -tool github.com/paskozdilar/go-lit@latest
+```
+
+Or install it globally with `go install github.com/paskozdilar/go-lit@latest`
+and call `go-lit` instead of `go tool go-lit` below.
+
+**2. Write your program as Markdown.** Put code in ` ```go ` blocks that start
+with a marker (full rules in [The notation](#the-notation)):
+
+````markdown
+The program greets whoever is named on the command line.
+
+```go
+// file: main.go
+package main
+
+func main() {
+	//:: greet :://
+}
+```
+
+Greeting is a one-liner.
+
+```go
+//== greet ==//
+fmt.Println("Hello,", strings.Join(os.Args[1:], " "))
+```
+````
+
+You don't need imports; they are filled in for you.
+
+**3. Add a hand-written `doc.go`** next to the Markdown, holding the
+`go:generate` directive. The build tag keeps it out of normal builds, so it
+works even before any code has been generated:
+
+```go
+//go:build generate
+
+package main
+
+//go:generate go tool go-lit
+```
+
+**4. Generate and run:**
+
+```sh
+go generate ./...
+go run .
+```
+
+With no arguments, `go-lit` reads every `*.md` in the directory. Flags:
+
+| Flag | Default | Meaning |
+|------|---------|---------|
+| `-source a.md,b.md` | all `*.md` (or positional args) | Markdown files to read |
+| `-outdir dir` | `.` | where output paths are relative to |
+| `-linemap` | off | emit `//line` directives so compiler errors point at the Markdown (confuses `gopls` and cover HTML) |
+
+**Day to day:** edit the Markdown, never the generated `.go` files (they say
+`DO NOT EDIT` and are overwritten on the next run). Commit both, so that
+`go build` and `go install` work for people who never run `go generate`. If a
+tangle fails, nothing is written. For a complete working project, see
+[example/](example/).
 
 ## The notation
 
@@ -78,17 +170,26 @@ missing and removes what is unused. We write imports by hand only where
 
 ## Bootstrapping
 
-`go-lit` builds itself. `doc.go` is the one hand-written file, and all it
-holds is the `go:generate` line:
+`go-lit` builds itself. It uses itself the same way it asks you to: its
+`go.mod` lists its own package as a tool,
 
-```go
-package main
-
-//go:generate go run . -source=README.md
+```text
+tool github.com/paskozdilar/go-lit
 ```
 
-`go generate` compiles the *currently generated* sources, and the result
-regenerates them from this document. If an edit here produces Go that doesn't
+and `doc.go`, the one hand-written file, holds the `go:generate` line:
+
+```go
+//go:build generate
+
+package main
+
+//go:generate go tool go-lit -source=README.md
+```
+
+Because the tool is in the main module, `go tool go-lit` compiles the
+*currently generated* sources, and the result regenerates them from this
+document. If an edit here produces Go that doesn't
 compile, the tool will not run again until that is fixed. Restore the
 generated files with `git checkout -- '*.go'` and try again. A failed tangle
 writes nothing, so a broken document never overwrites working code.

@@ -2,4 +2,4 @@
 
 package main
 
-//go:generate go run . -source=README.md
+//go:generate go tool go-lit -source=README.md
