@@ -140,7 +140,9 @@ if len(sources) == 0 {
 ```
 
 All sources go into one `Program`, so a chunk defined in one document can be
-used in another.
+used in another. If no source declares an output file, we fail loudly rather
+than succeed at writing nothing, which usually means the wrong directory or
+`-source`.
 
 ```go
 //== load-sources ==//
@@ -154,7 +156,7 @@ for _, src := range sources {
 		return fmt.Errorf("%s: %w", src, err)
 	}
 }
-if len(p.order) == 0 {
+if !p.HasFiles() {
 	return fmt.Errorf("no \"// file:\" blocks found in %s", strings.Join(sources, ", "))
 }
 ```
@@ -232,6 +234,12 @@ type Program struct {
 
 func NewProgram() *Program {
 	return &Program{chunks: map[string][]line{}, files: map[string][]line{}}
+}
+
+// HasFiles reports whether any "// file:" block was seen. Chunks alone
+// produce no output, so without files there is nothing to write.
+func (p *Program) HasFiles() bool {
+	return len(p.files) > 0
 }
 ```
 

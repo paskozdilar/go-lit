@@ -42,6 +42,12 @@ func NewProgram() *Program {
 	return &Program{chunks: map[string][]line{}, files: map[string][]line{}}
 }
 
+// HasFiles reports whether any "// file:" block was seen. Chunks alone
+// produce no output, so without files there is nothing to write.
+func (p *Program) HasFiles() bool {
+	return len(p.files) > 0
+}
+
 func (p *Program) Parse(srcName string, data []byte) error {
 	doc := goldmark.New().Parser().Parse(text.NewReader(data))
 	return ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {

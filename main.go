@@ -53,7 +53,7 @@ func run() error {
 			return fmt.Errorf("%s: %w", src, err)
 		}
 	}
-	if len(p.order) == 0 {
+	if !p.HasFiles() {
 		return fmt.Errorf("no \"// file:\" blocks found in %s", strings.Join(sources, ", "))
 	}
 
