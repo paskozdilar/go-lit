@@ -2,4 +2,4 @@
 
 package main
 
-//go:generate go run go-lit -source=hello.md
+//go:generate go run . -source=hello.md
