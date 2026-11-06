@@ -324,16 +324,41 @@ if len(lines) == 0 {
 }
 ```
 
-The marker line is not itself output. Consecutive blocks for the same file
-are separated by a blank line, which reads better and costs nothing.
-Consecutive pieces of a chunk are joined directly, since they are usually
-statements in a row.
+Once leading blank lines are removed, the first line determines what kind of
+block we are dealing with. Two regular expressions classify the block:
+
+* **File targets (`fileRe`):** `^//\s*file:\s*(\S+)\s*$` matches directives
+  that route code to an output file. It starts with the Go line comment
+  marker `//` and the `file:` keyword, with optional whitespace around both
+  (`\s*file:\s*`). Capturing group 1 (`(\S+)`) extracts the file path as a
+  sequence of non-whitespace characters, precluding unquoted spaces in paths.
+  Any trailing whitespace up to the end of the line (`$`) is ignored.
+* **Chunk definitions (`defRe`):** `^//==\s*(\S+)\s*==//$` matches named macro
+  definitions. It uses symmetrical bookends—`//==` at the start and `==//` at
+  the end—framing the chunk identifier with optional inner whitespace. This
+  mirrors the `//:: name :://` reference syntax used during expansion while
+  remaining valid Go comment syntax. The identifier in capturing group 1
+  (`(\S+)`) cannot contain spaces.
+
+Blocks whose first line matches neither pattern are treated as illustrative
+prose snippets and skipped.
 
 ```go
 //== patterns ==//
 fileRe = regexp.MustCompile(`^//\s*file:\s*(\S+)\s*$`)
 defRe  = regexp.MustCompile(`^//==\s*(\S+)\s*==//$`)
 ```
+
+The marker line (`lines[0]`) is consumed to register the block and is never
+emitted into the generated code.
+
+File paths are normalized with `filepath.Clean`. When a file is encountered for
+the first time, its path is recorded in `p.order` so output files are written
+in a deterministic, document-ordered sequence. Consecutive blocks for the same
+file are separated by a blank line, which reads better and costs nothing.
+Consecutive pieces of a chunk, in contrast, are joined directly without
+separator lines because they usually represent contiguous statements within
+a single function or declaration block.
 
 ```go
 //== register-block ==//
